@@ -63,7 +63,16 @@ def emulate_gateway(order_id):
     return "UNKNOWN", "NOT_IMPLEMENTED"
 
 
+def init_out_csv():
+    if not os.path.exists(OUT_CSV):
+        with open(OUT_CSV, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                ["order_id", "recipient", "amount", "status", "error_code"]
+            )
+
 def main():
+    init_out_csv()
     if len(sys.argv) < 2:
         print("Использование: python 04_прототип.py payment.json")
         sys.exit(1)

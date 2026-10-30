@@ -1,0 +1,7 @@
+{
+  "order_id": "ORD-000001",
+  "recipient": "clinic_medservice",
+  "purpose": "Оплата услуг",
+  "amount": "150.00",
+  "currency": "RUB"
+}
