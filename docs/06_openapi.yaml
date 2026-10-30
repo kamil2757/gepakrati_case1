@@ -1,0 +1,135 @@
+# OpenAPI 3.0 — платёжный сервис, кейс 1
+#
+# Как заполнять:
+#   1. Не меняй строки с пометкой "ОБРАЗЕЦ" — это образец.
+#   2. Строки с "TODO" замени на реальное описание.
+#   3. Все 4 метода должны быть описаны: create, confirm, get, cancel.
+#   4. У каждого метода — responses с кодами (201/200/402/404/409/422/504).
+#   5. В примерах используй реальные данные из payments.csv.
+#
+# Проверь после заполнения: файл должен открываться в
+# https://editor.swagger.io/ без ошибок.
+
+openapi: 3.0.3
+
+info:
+  title: Med-Service Payment Service
+  version: "1.0.0"
+  description: Встраиваемый платёжный сервис для клиники. Шлюз эмулируется.
+
+servers:
+  - url: http://localhost:8081
+
+# ---------- ОБРАЗЕЦ: этот блок не трогать ----------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 64}
+      description: UUID или стабильный ключ; хранится 24 ч
+
+  schemas:
+    PaymentCreate:
+      type: object
+      required: [order_id, recipient, purpose, amount, currency]
+      properties:
+        order_id: {type: string, minLength: 1, maxLength: 64,
+                   pattern: '^[A-Za-z0-9_\-]+$'}
+        recipient: {type: string, minLength: 1, maxLength: 64}
+        purpose: {type: string, minLength: 1, maxLength: 200}
+        amount: {type: number, format: double, exclusiveMinimum: 0,
+                 maximum: 1000000, multipleOf: 0.01}
+        currency: {type: string, enum: [RUB]}
+
+# ---------- TODO: опиши эти схемы сам ----------
+    PaymentCreated:
+      type: object
+      properties:
+        # TODO: payment_id, status, confirm_token, expires_in
+        ?
+
+    PaymentStatus:
+      type: object
+      properties:
+        # TODO: payment_id, status, error_code, amount, currency, history
+        ?
+
+    PaymentConfirm:
+      type: object
+      required: [confirm_token]
+      properties:
+        # TODO: confirm_token, method (enum card_token/sms_code/biometric_stub)
+        ?
+
+    Error:
+      type: object
+      required: [error_code, message]
+      properties:
+        # TODO: error_code, message, retryable, details
+        ?
+
+# ---------- paths ----------
+paths:
+  # ---------- ОБРАЗЕЦ: health, не трогать ----------
+  /health:
+    get:
+      summary: Проверка живости
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {status: {type: string, example: UP}}
+
+  # ---------- TODO: создание платежа ----------
+  /api/v1/payments:
+    post:
+      tags: [payments]
+      summary: TODO — что делает метод
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      # TODO: security
+      # TODO: requestBody со схемой PaymentCreate + example
+      # TODO: responses 201, 400, 401, 404, 409, 422, 429
+      ?
+
+  # ---------- TODO: подтверждение ----------
+  /api/v1/payments/{id}/confirm:
+    post:
+      tags: [payments]
+      summary: TODO
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - $ref: '#/components/parameters/IdempotencyKey'
+      # TODO: requestBody PaymentConfirm + example
+      # TODO: responses 200, 402, 410, 422, 504
+      ?
+
+  # ---------- TODO: статус ----------
+  /api/v1/payments/{id}:
+    get:
+      tags: [payments]
+      summary: TODO
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      # TODO: responses 200, 404
+      ?
+
+  # ---------- TODO: отмена ----------
+  /api/v1/payments/{id}/cancel:
+    post:
+      tags: [payments]
+      summary: TODO (только до подтверждения)
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      # TODO: responses 200, 409
+      ?

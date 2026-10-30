@@ -1,0 +1,101 @@
+payment_id,order_id,recipient,purpose,amount,currency,status,error_code,idempotency_key,created_at,confirmed_at,correlation_id
+pay_0001,ord_1001,clinic_medservice,Приём терапевта,2500.00,RUB,SUCCESS,,idem_0001,2025-11-01T08:00:00Z,2025-11-01T08:00:03Z,corr_0001
+pay_0002,ord_1002,clinic_medservice,УЗИ,1800.00,RUB,DECLINED,INSUFFICIENT_FUNDS,idem_0002,2025-11-01T08:30:00Z,,corr_0002
+pay_0003,ord_1003,clinic_medservice,Анализ крови,-100.00,RUB,ERROR,VALIDATION_ERROR,idem_0003,2025-11-01T09:00:00Z,,corr_0003
+pay_0004,ord_1004,clinic_medservice_old,Приём кардиолога,3000.00,RUB,ERROR,RECIPIENT_NOT_FOUND,idem_0004,2025-11-01T09:30:00Z,,corr_0004
+pay_0005,ord_1005,clinic_medservice,МРТ,12000.00,USD,ERROR,UNSUPPORTED_CURRENCY,idem_0005,2025-11-01T10:00:00Z,,corr_0005
+pay_0006,ord_1006,clinic_medservice,Приём педиатра,2200.00,RUB,PENDING,,idem_0006,2025-11-01T10:30:00Z,,corr_0006
+pay_0007,ord_1007,clinic_medservice,Физиотерапия,1500.00,RUB,SUCCESS,,idem_0007,2025-11-01T11:00:00Z,2025-11-01T11:00:21Z,corr_0007
+pay_0008,ord_1008,clinic_medservice,Приём терапевта,2500.00,RUB,CANCELED,,idem_0008,2025-11-01T11:30:00Z,,corr_0008
+pay_0009,ord_1009,clinic_medservice_lab,Анализ мочи,900.00,RUB,SUCCESS,,idem_0009,2025-11-01T12:00:00Z,2025-11-01T12:00:27Z,corr_0009
+pay_0010,ord_1010,clinic_medservice,Приём хирурга,2700.00,RUB,DECLINED,CARD_DECLINED,idem_0010,2025-11-01T12:30:00Z,,corr_0010
+pay_0011,ord_1011,clinic_medservice,Рентген,3200.00,RUB,PENDING,,idem_0011,2025-11-01T13:00:00Z,,corr_0011
+pay_0012,ord_1012,clinic_medservice,Приём терапевта,2500.00,RUB,ERROR,DUPLICATE_ORDER,idem_0012,2025-11-01T13:30:00Z,,corr_0012
+pay_0013,ord_1013,clinic_medservice,Приём терапевта,900.00,RUB,SUCCESS,,idem_0013,2025-11-01T14:00:00Z,2025-11-01T14:00:39Z,corr_0013
+pay_0014,ord_1014,clinic_medservice_lab,УЗИ,1500.00,RUB,SUCCESS,,idem_0014,2025-11-01T14:30:00Z,2025-11-01T14:30:42Z,corr_0014
+pay_0015,ord_1015,clinic_medservice_therapy,Анализ крови,1800.00,RUB,SUCCESS,,idem_0015,2025-11-01T15:00:00Z,2025-11-01T15:00:45Z,corr_0015
+pay_0016,ord_1016,clinic_medservice,МРТ,2200.00,RUB,SUCCESS,,idem_0016,2025-11-01T15:30:00Z,2025-11-01T15:30:48Z,corr_0016
+pay_0017,ord_1017,clinic_medservice_lab,Приём кардиолога,2500.00,RUB,SUCCESS,,idem_0017,2025-11-01T16:00:00Z,2025-11-01T16:00:51Z,corr_0017
+pay_0018,ord_1018,clinic_medservice_therapy,Физиотерапия,2700.00,RUB,SUCCESS,,idem_0018,2025-11-01T16:30:00Z,2025-11-01T16:30:54Z,corr_0018
+pay_0019,ord_1019,clinic_medservice,Рентген,3000.00,RUB,SUCCESS,,idem_0019,2025-11-01T17:00:00Z,2025-11-01T17:00:57Z,corr_0019
+pay_0020,ord_1020,clinic_medservice_lab,Приём педиатра,3200.00,RUB,SUCCESS,,idem_0020,2025-11-01T17:30:00Z,2025-11-01T17:30:00Z,corr_0020
+pay_0021,ord_1021,clinic_medservice_therapy,Приём хирурга,12000.00,RUB,SUCCESS,,idem_0021,2025-11-02T08:00:00Z,2025-11-02T08:00:03Z,corr_0021
+pay_0022,ord_1022,clinic_medservice,Анализ мочи,5000.00,RUB,SUCCESS,,idem_0022,2025-11-02T08:30:00Z,2025-11-02T08:30:06Z,corr_0022
+pay_0023,ord_1023,clinic_medservice_lab,Приём терапевта,750.00,RUB,SUCCESS,,idem_0023,2025-11-02T09:00:00Z,2025-11-02T09:00:09Z,corr_0023
+pay_0024,ord_1024,clinic_medservice_therapy,УЗИ,4200.00,RUB,SUCCESS,,idem_0024,2025-11-02T09:30:00Z,2025-11-02T09:30:12Z,corr_0024
+pay_0025,ord_1025,clinic_medservice,Анализ крови,900.00,RUB,SUCCESS,,idem_0025,2025-11-02T10:00:00Z,2025-11-02T10:00:15Z,corr_0025
+pay_0026,ord_1026,clinic_medservice_lab,МРТ,1500.00,RUB,SUCCESS,,idem_0026,2025-11-02T10:30:00Z,2025-11-02T10:30:18Z,corr_0026
+pay_0027,ord_1027,clinic_medservice_therapy,Приём кардиолога,1800.00,RUB,SUCCESS,,idem_0027,2025-11-02T11:00:00Z,2025-11-02T11:00:21Z,corr_0027
+pay_0028,ord_1028,clinic_medservice,Физиотерапия,2200.00,RUB,SUCCESS,,idem_0028,2025-11-02T11:30:00Z,2025-11-02T11:30:24Z,corr_0028
+pay_0029,ord_1029,clinic_medservice_lab,Рентген,2500.00,RUB,SUCCESS,,idem_0029,2025-11-02T12:00:00Z,2025-11-02T12:00:27Z,corr_0029
+pay_0030,ord_1030,clinic_medservice_therapy,Приём педиатра,2700.00,RUB,SUCCESS,,idem_0030,2025-11-02T12:30:00Z,2025-11-02T12:30:30Z,corr_0030
+pay_0031,ord_1031,clinic_medservice,Приём хирурга,3000.00,RUB,SUCCESS,,idem_0031,2025-11-02T13:00:00Z,2025-11-02T13:00:33Z,corr_0031
+pay_0032,ord_1032,clinic_medservice_lab,Анализ мочи,3200.00,RUB,SUCCESS,,idem_0032,2025-11-02T13:30:00Z,2025-11-02T13:30:36Z,corr_0032
+pay_0033,ord_1033,clinic_medservice_therapy,Приём терапевта,12000.00,RUB,SUCCESS,,idem_0033,2025-11-02T14:00:00Z,2025-11-02T14:00:39Z,corr_0033
+pay_0034,ord_1034,clinic_medservice,УЗИ,5000.00,RUB,SUCCESS,,idem_0034,2025-11-02T14:30:00Z,2025-11-02T14:30:42Z,corr_0034
+pay_0035,ord_1035,clinic_medservice_lab,Анализ крови,750.00,RUB,SUCCESS,,idem_0035,2025-11-02T15:00:00Z,2025-11-02T15:00:45Z,corr_0035
+pay_0036,ord_1036,clinic_medservice_therapy,МРТ,4200.00,RUB,SUCCESS,,idem_0036,2025-11-02T15:30:00Z,2025-11-02T15:30:48Z,corr_0036
+pay_0037,ord_1037,clinic_medservice,Приём кардиолога,900.00,RUB,SUCCESS,,idem_0037,2025-11-02T16:00:00Z,2025-11-02T16:00:51Z,corr_0037
+pay_0038,ord_1038,clinic_medservice_lab,Физиотерапия,1500.00,RUB,SUCCESS,,idem_0038,2025-11-02T16:30:00Z,2025-11-02T16:30:54Z,corr_0038
+pay_0039,ord_1039,clinic_medservice_therapy,Рентген,1800.00,RUB,SUCCESS,,idem_0039,2025-11-02T17:00:00Z,2025-11-02T17:00:57Z,corr_0039
+pay_0040,ord_1040,clinic_medservice,Приём педиатра,2200.00,RUB,SUCCESS,,idem_0040,2025-11-02T17:30:00Z,2025-11-02T17:30:00Z,corr_0040
+pay_0041,ord_1041,clinic_medservice_lab,Приём хирурга,2500.00,RUB,SUCCESS,,idem_0041,2025-11-03T08:00:00Z,2025-11-03T08:00:03Z,corr_0041
+pay_0042,ord_1042,clinic_medservice_therapy,Анализ мочи,2700.00,RUB,SUCCESS,,idem_0042,2025-11-03T08:30:00Z,2025-11-03T08:30:06Z,corr_0042
+pay_0043,ord_1043,clinic_medservice,Приём терапевта,3000.00,RUB,SUCCESS,,idem_0043,2025-11-03T09:00:00Z,2025-11-03T09:00:09Z,corr_0043
+pay_0044,ord_1044,clinic_medservice_lab,УЗИ,3200.00,RUB,SUCCESS,,idem_0044,2025-11-03T09:30:00Z,2025-11-03T09:30:12Z,corr_0044
+pay_0045,ord_1045,clinic_medservice_therapy,Анализ крови,12000.00,RUB,SUCCESS,,idem_0045,2025-11-03T10:00:00Z,2025-11-03T10:00:15Z,corr_0045
+pay_0046,ord_1046,clinic_medservice,МРТ,5000.00,RUB,SUCCESS,,idem_0046,2025-11-03T10:30:00Z,2025-11-03T10:30:18Z,corr_0046
+pay_0047,ord_1047,clinic_medservice_lab,Приём кардиолога,750.00,RUB,SUCCESS,,idem_0047,2025-11-03T11:00:00Z,2025-11-03T11:00:21Z,corr_0047
+pay_0048,ord_1048,clinic_medservice_therapy,Физиотерапия,4200.00,RUB,SUCCESS,,idem_0048,2025-11-03T11:30:00Z,2025-11-03T11:30:24Z,corr_0048
+pay_0049,ord_1049,clinic_medservice,Рентген,900.00,RUB,SUCCESS,,idem_0049,2025-11-03T12:00:00Z,2025-11-03T12:00:27Z,corr_0049
+pay_0050,ord_1050,clinic_medservice_lab,Приём педиатра,1500.00,RUB,SUCCESS,,idem_0050,2025-11-03T12:30:00Z,2025-11-03T12:30:30Z,corr_0050
+pay_0051,ord_1051,clinic_medservice_therapy,Приём хирурга,1800.00,RUB,SUCCESS,,idem_0051,2025-11-03T13:00:00Z,2025-11-03T13:00:33Z,corr_0051
+pay_0052,ord_1052,clinic_medservice,Анализ мочи,2200.00,RUB,SUCCESS,,idem_0052,2025-11-03T13:30:00Z,2025-11-03T13:30:36Z,corr_0052
+pay_0053,ord_1053,clinic_medservice_lab,Приём терапевта,2500.00,RUB,SUCCESS,,idem_0053,2025-11-03T14:00:00Z,2025-11-03T14:00:39Z,corr_0053
+pay_0054,ord_1054,clinic_medservice_therapy,УЗИ,2700.00,RUB,SUCCESS,,idem_0054,2025-11-03T14:30:00Z,2025-11-03T14:30:42Z,corr_0054
+pay_0055,ord_1055,clinic_medservice,Анализ крови,3000.00,RUB,SUCCESS,,idem_0055,2025-11-03T15:00:00Z,2025-11-03T15:00:45Z,corr_0055
+pay_0056,ord_1056,clinic_medservice_lab,МРТ,3200.00,RUB,SUCCESS,,idem_0056,2025-11-03T15:30:00Z,2025-11-03T15:30:48Z,corr_0056
+pay_0057,ord_1057,clinic_medservice_therapy,Приём кардиолога,12000.00,RUB,SUCCESS,,idem_0057,2025-11-03T16:00:00Z,2025-11-03T16:00:51Z,corr_0057
+pay_0058,ord_1058,clinic_medservice,Физиотерапия,5000.00,RUB,SUCCESS,,idem_0058,2025-11-03T16:30:00Z,2025-11-03T16:30:54Z,corr_0058
+pay_0059,ord_1059,clinic_medservice_lab,Рентген,750.00,RUB,SUCCESS,,idem_0059,2025-11-03T17:00:00Z,2025-11-03T17:00:57Z,corr_0059
+pay_0060,ord_1060,clinic_medservice_therapy,Приём педиатра,4200.00,RUB,SUCCESS,,idem_0060,2025-11-03T17:30:00Z,2025-11-03T17:30:00Z,corr_0060
+pay_0061,ord_1061,clinic_medservice,Приём хирурга,900.00,RUB,SUCCESS,,idem_0061,2025-11-04T08:00:00Z,2025-11-04T08:00:03Z,corr_0061
+pay_0062,ord_1062,clinic_medservice_lab,Анализ мочи,1500.00,RUB,SUCCESS,,idem_0062,2025-11-04T08:30:00Z,2025-11-04T08:30:06Z,corr_0062
+pay_0063,ord_1063,clinic_medservice_therapy,Приём терапевта,1800.00,RUB,SUCCESS,,idem_0063,2025-11-04T09:00:00Z,2025-11-04T09:00:09Z,corr_0063
+pay_0064,ord_1064,clinic_medservice,УЗИ,2200.00,RUB,SUCCESS,,idem_0064,2025-11-04T09:30:00Z,2025-11-04T09:30:12Z,corr_0064
+pay_0065,ord_1065,clinic_medservice_lab,Анализ крови,2500.00,RUB,SUCCESS,,idem_0065,2025-11-04T10:00:00Z,2025-11-04T10:00:15Z,corr_0065
+pay_0066,ord_1066,clinic_medservice_therapy,МРТ,2700.00,RUB,SUCCESS,,idem_0066,2025-11-04T10:30:00Z,2025-11-04T10:30:18Z,corr_0066
+pay_0067,ord_1067,clinic_medservice,Приём кардиолога,3000.00,RUB,SUCCESS,,idem_0067,2025-11-04T11:00:00Z,2025-11-04T11:00:21Z,corr_0067
+pay_0068,ord_1068,clinic_medservice_lab,Физиотерапия,3200.00,RUB,SUCCESS,,idem_0068,2025-11-04T11:30:00Z,2025-11-04T11:30:24Z,corr_0068
+pay_0069,ord_1069,clinic_medservice_therapy,Рентген,12000.00,RUB,SUCCESS,,idem_0069,2025-11-04T12:00:00Z,2025-11-04T12:00:27Z,corr_0069
+pay_0070,ord_1070,clinic_medservice,Приём педиатра,5000.00,RUB,SUCCESS,,idem_0070,2025-11-04T12:30:00Z,2025-11-04T12:30:30Z,corr_0070
+pay_0071,ord_1071,clinic_medservice_lab,Приём хирурга,750.00,RUB,SUCCESS,,idem_0071,2025-11-04T13:00:00Z,2025-11-04T13:00:33Z,corr_0071
+pay_0072,ord_1072,clinic_medservice_therapy,Анализ мочи,4200.00,RUB,SUCCESS,,idem_0072,2025-11-04T13:30:00Z,2025-11-04T13:30:36Z,corr_0072
+pay_0073,ord_1073,clinic_medservice,Приём терапевта,900.00,RUB,SUCCESS,,idem_0073,2025-11-04T14:00:00Z,2025-11-04T14:00:39Z,corr_0073
+pay_0074,ord_1074,clinic_medservice_lab,УЗИ,1500.00,RUB,SUCCESS,,idem_0074,2025-11-04T14:30:00Z,2025-11-04T14:30:42Z,corr_0074
+pay_0075,ord_1075,clinic_medservice_therapy,Анализ крови,1800.00,RUB,SUCCESS,,idem_0075,2025-11-04T15:00:00Z,2025-11-04T15:00:45Z,corr_0075
+pay_0076,ord_1076,clinic_medservice,МРТ,2200.00,RUB,SUCCESS,,idem_0076,2025-11-04T15:30:00Z,2025-11-04T15:30:48Z,corr_0076
+pay_0077,ord_1077,clinic_medservice_lab,Приём кардиолога,2500.00,RUB,SUCCESS,,idem_0077,2025-11-04T16:00:00Z,2025-11-04T16:00:51Z,corr_0077
+pay_0078,ord_1078,clinic_medservice_therapy,Физиотерапия,2700.00,RUB,SUCCESS,,idem_0078,2025-11-04T16:30:00Z,2025-11-04T16:30:54Z,corr_0078
+pay_0079,ord_1079,clinic_medservice,Рентген,3000.00,RUB,SUCCESS,,idem_0079,2025-11-04T17:00:00Z,2025-11-04T17:00:57Z,corr_0079
+pay_0080,ord_1080,clinic_medservice_lab,Приём педиатра,3200.00,RUB,DECLINED,INSUFFICIENT_FUNDS,idem_0080,2025-11-04T17:30:00Z,,corr_0080
+pay_0081,ord_1081,clinic_medservice_therapy,Приём хирурга,12000.00,RUB,DECLINED,CARD_DECLINED,idem_0081,2025-11-05T08:00:00Z,,corr_0081
+pay_0082,ord_1082,clinic_medservice,Анализ мочи,5000.00,RUB,DECLINED,INSUFFICIENT_FUNDS,idem_0082,2025-11-05T08:30:00Z,,corr_0082
+pay_0083,ord_1083,clinic_medservice_lab,Приём терапевта,750.00,RUB,DECLINED,CARD_DECLINED,idem_0083,2025-11-05T09:00:00Z,,corr_0083
+pay_0084,ord_1084,clinic_medservice_therapy,УЗИ,4200.00,RUB,DECLINED,INSUFFICIENT_FUNDS,idem_0084,2025-11-05T09:30:00Z,,corr_0084
+pay_0085,ord_1085,clinic_medservice,Анализ крови,900.00,RUB,DECLINED,CARD_DECLINED,idem_0085,2025-11-05T10:00:00Z,,corr_0085
+pay_0086,ord_1086,clinic_medservice_lab,МРТ,1500.00,RUB,DECLINED,INSUFFICIENT_FUNDS,idem_0086,2025-11-05T10:30:00Z,,corr_0086
+pay_0087,ord_1087,clinic_medservice_therapy,Приём кардиолога,1800.00,RUB,DECLINED,CARD_DECLINED,idem_0087,2025-11-05T11:00:00Z,,corr_0087
+pay_0088,ord_1088,clinic_medservice,Физиотерапия,2200.00,RUB,PENDING,,idem_0088,2025-11-05T11:30:00Z,,corr_0088
+pay_0089,ord_1089,clinic_medservice_lab,Рентген,2500.00,RUB,PENDING,,idem_0089,2025-11-05T12:00:00Z,,corr_0089
+pay_0090,ord_1090,clinic_medservice_therapy,Приём педиатра,2700.00,RUB,PENDING,,idem_0090,2025-11-05T12:30:00Z,,corr_0090
+pay_0091,ord_1091,clinic_medservice,Приём хирурга,3000.00,RUB,PENDING,,idem_0091,2025-11-05T13:00:00Z,,corr_0091
+pay_0092,ord_1092,clinic_medservice_lab,Анализ мочи,3200.00,RUB,PENDING,,idem_0092,2025-11-05T13:30:00Z,,corr_0092
+pay_0093,ord_1093,clinic_medservice_therapy,Приём терапевта,12000.00,RUB,ERROR,VALIDATION_ERROR,idem_0093,2025-11-05T14:00:00Z,,corr_0093
+pay_0094,ord_1094,clinic_medservice,УЗИ,5000.00,RUB,ERROR,RECIPIENT_NOT_FOUND,idem_0094,2025-11-05T14:30:00Z,,corr_0094
+pay_0095,ord_1095,clinic_medservice_lab,Анализ крови,750.00,RUB,ERROR,AMOUNT_OUT_OF_RANGE,idem_0095,2025-11-05T15:00:00Z,,corr_0095
+pay_0096,ord_1096,clinic_medservice_therapy,МРТ,4200.00,RUB,ERROR,UNSUPPORTED_CURRENCY,idem_0096,2025-11-05T15:30:00Z,,corr_0096
+pay_0097,ord_1097,clinic_medservice,Приём кардиолога,900.00,RUB,CANCELED,,idem_0097,2025-11-05T16:00:00Z,,corr_0097
+pay_0098,ord_1098,clinic_medservice_lab,Физиотерапия,1500.00,RUB,CANCELED,,idem_0098,2025-11-05T16:30:00Z,,corr_0098
+pay_0099,ord_1099,clinic_medservice_therapy,Рентген,1800.00,RUB,CANCELED,,idem_0099,2025-11-05T17:00:00Z,,corr_0099
+pay_0100,ord_1100,clinic_medservice,Приём педиатра,2200.00,RUB,CANCELED,,idem_0100,2025-11-05T17:30:00Z,,corr_0100

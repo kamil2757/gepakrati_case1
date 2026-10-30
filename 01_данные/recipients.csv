@@ -1,0 +1,42 @@
+recipient_id,name,status
+clinic_medservice,Клиника Мед-Сервис,ACTIVE
+clinic_medservice_lab,Лаборатория Мед-Сервис,ACTIVE
+clinic_medservice_old,Архивный филиал,INACTIVE
+clinic_medservice_therapy,Терапевтическое отделение,ACTIVE
+clinic_medservice_surgery,Хирургическое отделение,ACTIVE
+clinic_medservice_cardio,Кардиологическое отделение,ACTIVE
+clinic_medservice_pediatrics,Педиатрическое отделение,ACTIVE
+clinic_medservice_diagnostics,Диагностический центр,ACTIVE
+clinic_medservice_mri,Кабинет МРТ,ACTIVE
+clinic_medservice_ct,Кабинет КТ,ACTIVE
+clinic_medservice_xray,Рентген-кабинет,ACTIVE
+clinic_medservice_uzi,Кабинет УЗИ,ACTIVE
+clinic_medservice_physio,Физиотерапевтическое отделение,ACTIVE
+clinic_medservice_lab_blood,Лаборатория анализов крови,ACTIVE
+clinic_medservice_lab_urine,Лаборатория анализов мочи,ACTIVE
+clinic_medservice_lab_biochem,Биохимическая лаборатория,ACTIVE
+clinic_medservice_lab_histology,Гистологическая лаборатория,INACTIVE
+clinic_medservice_lab_genetics,Генетическая лаборатория,PENDING
+dr_ivanov,ИП Иванов И.И. (терапевт),ACTIVE
+dr_petrova,ИП Петрова А.С. (кардиолог),ACTIVE
+dr_sidorov,ИП Сидоров П.Н. (хирург),ACTIVE
+dr_kuznetsova,ИП Кузнецова М.В. (педиатр),ACTIVE
+dr_smirnov,ИП Смирнов В.А. (невролог),ACTIVE
+dr_volkova,ИП Волкова Н.П. (эндокринолог),ACTIVE
+dr_morozov,ИП Морозов Д.К. (уролог),ACTIVE
+dr_novikova,ИП Новикова О.Л. (гинеколог),ACTIVE
+dr_kozlov,ИП Козлов Р.С. (офтальмолог),ACTIVE
+dr_lebedeva,ИП Лебедева Е.М. (дерматолог),INACTIVE
+dr_sokolov,ИП Соколов А.Г. (ортопед),BLOCKED
+partner_apteka_1,Аптека «Здоровье» (партнёр),ACTIVE
+partner_apteka_2,Аптека «МедПлюс» (партнёр),ACTIVE
+partner_apteka_3,Аптека «Фарм-Сити» (партнёр),ACTIVE
+partner_apteka_4,Аптека «Здоровье+» (партнёр),INACTIVE
+insurance_alpha,Страховая «Альфа-Мед»,ACTIVE
+insurance_beta,Страховая «Бета-Страхование»,ACTIVE
+insurance_gamma,Страховая «Гамма-Гарант»,ACTIVE
+insurance_delta,Страховая «Дельта-Мед»,PENDING
+insurance_omega,Страховая «Омега-Страх»,INACTIVE
+supplier_medteh,ООО «МедТех» (поставщик оборудования),ACTIVE
+supplier_farm,ООО «ФармСнаб» (поставщик лекарств),ACTIVE
+supplier_clean,ООО «КлинСервис» (клининг),BLOCKED
