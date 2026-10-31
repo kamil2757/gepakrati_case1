@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import sys
+import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECIPIENTS_CSV = os.path.join(BASE_DIR, "01_данные", "recipients.csv")
@@ -50,6 +51,7 @@ def validate(payload, active_recipients):
             errors.append(("amount", "AMOUNT_OUT_OF_RANGE"))
     # TODO: V-3 (order_id regex), V-4 (currency), V-5 (recipient),
     #       V-6 (purpose), V-7 (2 знака), V-8 (дубль), V-9 (idempotency)
+
     return errors
 
 
@@ -65,11 +67,36 @@ def emulate_gateway(order_id):
 
 def init_out_csv():
     if not os.path.exists(OUT_CSV):
-        with open(OUT_CSV, 'w') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                ["order_id", "recipient", "amount", "status", "error_code"]
-            )
+        with open(OUT_CSV, 'w', encoding="utf-8-sig", newline='') as f:
+            writer = csv.writer(f, delimiter=';')
+            writer.writerow([
+                "payment_id", "order_id", "recipient", "purpose", "amount",
+                "currency", "status", "error_code", "idempotency_key",
+                "created_at", "confirmed_at", "correlation_id"
+            ])
+
+
+def write_result(payload, status, error_code):
+    print(payload)
+    pay_id = "pay_demo_" + payload["order_id"][-4:]
+    time_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with open(OUT_CSV, 'a', encoding="utf-8-sig", newline='') as f:
+        writer = csv.writer(f, delimiter=';')
+        writer.writerow([
+            pay_id,
+            payload.get("order_id"),
+            payload.get("recipient"),
+            payload.get("purpose"),
+            payload.get("amount"),
+            payload.get("currency"),
+            status,
+            error_code or "",
+            "Сделаем позже",
+            time_now,
+            "Сделаем позже",
+            "Сделаем позже"
+        ])
+
 
 def main():
     init_out_csv()
@@ -92,6 +119,7 @@ def main():
         sys.exit(2)
 
     status, error_code = emulate_gateway(payload["order_id"])
+    write_result(payload, status, error_code)
     print(json.dumps({
         "payment_id": "pay_demo_" + payload["order_id"][-4:],
         "status": status,
