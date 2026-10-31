@@ -37,19 +37,63 @@ def load_active_recipients():
         print(f"WARN: {RECIPIENTS_CSV} не найден", file=sys.stderr)
     return active
 
+import re
 
 def validate(payload, active_recipients):
     """TODO: реализовать V-3…V-9. Вернуть [(field, code), ...]."""
     errors = []
-    # ОБРАЗЕЦ — V-1, V-2
+    # ОБРАЗЕЦ — V-1
     for field in ["order_id", "recipient", "purpose", "amount", "currency"]:
         if not payload.get(field):
             errors.append((field, "VALIDATION_ERROR"))
+    # V-2
+    pattern = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
+    if pattern.match(payload.get('order_id')) is None:
+        errors.append(('order_id', 'INVALID_FORMAT'))
+
+    # ОБРАЗЕЦ — V-3
     if "amount" in payload:
         amt = float(payload["amount"])
         if amt <= 0 or amt > 1_000_000:
             errors.append(("amount", "AMOUNT_OUT_OF_RANGE"))
-    # TODO: V-3 (order_id regex), V-4 (currency), V-5 (recipient),
+
+    # V-4
+    if payload.get('currency') != 'RUB':
+        errors.append(('currency', 'UNSUPPORTED_CURRENCY'))
+
+    # V-5
+    recipient = payload.get('recipient')
+    if recipient and recipient not in active_recipients:
+        errors.append(('recipient', 'RECIPIENT_NOT_FOUND'))
+
+    # V-6
+    purpose = payload.get('purpose')
+    pattern = re.compile(r'\d{13,19}')
+    if len(purpose) > 200 or pattern.search(purpose):
+        errors.append(('purpose', 'INVALID_PURPOSE'))
+
+    # V-7
+    amount = payload.get('amount')
+    if len(amount.split('.')[1]) > 2:
+        errors.append(('amount', 'INVALID_AMOUNT_PRECISION'))
+
+    # V-8
+    order_id = payload.get('order_id')
+    recipient = payload.get('recipient')
+    with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f, delimiter=';')
+        for row in reader:
+            if row.get('order_id') == order_id and row.get('recipient') == recipient:
+                errors.append(('order_id, recipient', 'DUPLICATE_ORDER'))
+                break
+
+    # V-9 тут позже, нужно с ключем будет разобраться
+
+
+
+
+
+    # TODO: V-2 (order_id regex), V-4 (currency), V-5 (recipient),
     #       V-6 (purpose), V-7 (2 знака), V-8 (дубль), V-9 (idempotency)
 
     return errors
@@ -77,7 +121,6 @@ def init_out_csv():
 
 
 def write_result(payload, status, error_code):
-    print(payload)
     pay_id = "pay_demo_" + payload["order_id"][-4:]
     time_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with open(OUT_CSV, 'a', encoding="utf-8-sig", newline='') as f:
@@ -116,6 +159,7 @@ def main():
             "error_code": "VALIDATION_ERROR",
             "errors": [{"field": f, "code": c} for f, c in errors],
         }, ensure_ascii=False, indent=2))
+        write_result(payload, 'ERROR', 'VALIDATION_ERROR')
         sys.exit(2)
 
     status, error_code = emulate_gateway(payload["order_id"])
