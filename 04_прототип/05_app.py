@@ -19,6 +19,10 @@ import json
 import os
 import sys
 import datetime
+import re
+import uuid
+import time
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECIPIENTS_CSV = os.path.join(BASE_DIR, "01_данные", "recipients.csv")
@@ -37,8 +41,6 @@ def load_active_recipients():
         print(f"WARN: {RECIPIENTS_CSV} не найден", file=sys.stderr)
     return active
 
-
-import re
 
 
 def validate(payload, active_recipients, idem_key):
@@ -106,7 +108,20 @@ def emulate_gateway(order_id):
     # ОБРАЗЕЦ — 0..6 = SUCCESS
     if h <= 6:
         return "SUCCESS", None
-    # TODO: 7 = INSUFFICIENT_FUNDS, 8 = CARD_DECLINED, 9 = TIMEOUT
+    elif h == 7:
+        return 'DECLINED', 'INSUFFICIENT_FUNDS'
+    elif h == 8:
+        return 'DECLINED', 'CARD_DECLINED'
+    elif h == 9:
+        print('Банк не отвечает. ожидание 10 минут')
+        # тестировщик может менять значение времени, чтоб не ждать 600 секунд
+        timeout = 600
+        show_loading(timeout)
+        print('время вышло')
+        return 'TIMEOUT', 'UNKNOWN'
+
+
+
     return "UNKNOWN", "NOT_IMPLEMENTED"
 
 
@@ -121,7 +136,19 @@ def init_out_csv():
             ])
 
 
-import uuid
+
+
+def show_loading(seconds):
+    """Показывает красивую анимацию загрузки в течение указанного времени."""
+    frames = ["   ", ".  ", ".. ", "..."]  # Кадры анимации
+    end_time = time.time() + seconds
+
+    i = 0
+    while time.time() < end_time:
+        sys.stdout.write(f"\r{frames[i % len(frames)]}")
+        sys.stdout.flush()
+        time.sleep(0.4)
+        i += 1
 
 
 def write_result(payload, status, error_code, idem_key):
@@ -161,6 +188,7 @@ def main():
     active = load_active_recipients()
     errors = validate(payload, active, idem_key)
 
+
     if errors:
         print(json.dumps({
             "status": "ERROR",
@@ -170,8 +198,22 @@ def main():
         write_result(payload, 'ERROR', 'VALIDATION_ERROR', idem_key)
         sys.exit(2)
 
+    print(f'Платеж создан {payload.get("order_id")}, статус CREATED')
+    time.sleep(1)
+    confirm_token = uuid.uuid4().hex[:6]
+    print(f'Токен сгенерировал: {confirm_token}, оправлен пользователю, ждем подтверждения \n')
+    print('Ожидание подтверждения клиентом ', end='\n')
+    show_loading(5)
+    print(f'Токен подтвержден пользователем, статус PENDING')
+    time.sleep(1)
+    print()
+    print('Запрос отправлен в банк')
+    show_loading(2)
+
     status, error_code = emulate_gateway(payload["order_id"])
     write_result(payload, status, error_code, idem_key)
+
+    print('Результат:')
     print(json.dumps({
         "payment_id": "pay_demo_" + payload["order_id"][-4:],
         "status": status,
