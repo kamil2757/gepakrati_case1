@@ -92,12 +92,12 @@ def validate(payload, active_recipients, idem_key):
                 break
 
     # V-9
-    with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f, delimiter=';')
-        for row in reader:
-            if row.get('idempotency_key') == idem_key:
-                errors.append(('idempotency_key', 'DUPLICATE_REQUEST'))
-                break
+    # with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+    #     reader = csv.DictReader(f, delimiter=';')
+    #     for row in reader:
+    #         if row.get('idempotency_key') == idem_key:
+    #             errors.append(('idempotency_key', 'DUPLICATE_REQUEST'))
+    #             break
 
     return errors
 
@@ -185,6 +185,22 @@ def main():
         payload = json.load(f)
 
     idem_key = sys.argv[2]
+
+    # v-9 теперь тут
+    with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f, delimiter=';')
+        for row in reader:
+            if row.get('idempotency_key') == idem_key:
+                print('Это повторный запрос. Возвращаем результат предыдущего платежа:')
+                print(json.dumps({
+                    "payment_id": row.get('payment_id'),
+                    "status": row.get('status'),
+                    "error_code": "DUPLICATE_REQUEST"
+                }, ensure_ascii=False, indent=2))
+                sys.exit(0)
+                break
+
+
     active = load_active_recipients()
     errors = validate(payload, active, idem_key)
 
@@ -220,7 +236,7 @@ def main():
         "error_code": error_code,
     }, ensure_ascii=False, indent=2))
 
-    sys.exit(0 if status == "SUCCESS" else (3 if status == "TIMEOUT" else 1))
+    sys.exit(0 if status == "SUCCESS" else (3 if error_code == "UNKNOWN" else 1))
 
 
 if __name__ == "__main__":
