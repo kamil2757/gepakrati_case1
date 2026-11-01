@@ -37,9 +37,11 @@ def load_active_recipients():
         print(f"WARN: {RECIPIENTS_CSV} не найден", file=sys.stderr)
     return active
 
+
 import re
 
-def validate(payload, active_recipients):
+
+def validate(payload, active_recipients, idem_key):
     """TODO: реализовать V-3…V-9. Вернуть [(field, code), ...]."""
     errors = []
     # ОБРАЗЕЦ — V-1
@@ -87,14 +89,13 @@ def validate(payload, active_recipients):
                 errors.append(('order_id, recipient', 'DUPLICATE_ORDER'))
                 break
 
-    # V-9 тут позже, нужно с ключем будет разобраться
-
-
-
-
-
-    # TODO: V-2 (order_id regex), V-4 (currency), V-5 (recipient),
-    #       V-6 (purpose), V-7 (2 знака), V-8 (дубль), V-9 (idempotency)
+    # V-9
+    with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f, delimiter=';')
+        for row in reader:
+            if row.get('idempotency_key') == idem_key:
+                errors.append(('idempotency_key', 'DUPLICATE_REQUEST'))
+                break
 
     return errors
 
@@ -120,9 +121,14 @@ def init_out_csv():
             ])
 
 
-def write_result(payload, status, error_code):
+import uuid
+
+
+def write_result(payload, status, error_code, idem_key):
     pay_id = "pay_demo_" + payload["order_id"][-4:]
-    time_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    msk_tz = datetime.timezone(datetime.timedelta(hours=3))
+    time_now = datetime.datetime.now(msk_tz).strftime("%Y-%m-%dT%H:%M:%SZ")
+    corr_id = "corr_" + uuid.uuid4().hex[:6]
     with open(OUT_CSV, 'a', encoding="utf-8-sig", newline='') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow([
@@ -134,24 +140,26 @@ def write_result(payload, status, error_code):
             payload.get("currency"),
             status,
             error_code or "",
-            "Сделаем позже",
+            idem_key,
             time_now,
-            "Сделаем позже",
-            "Сделаем позже"
+            time_now,
+            corr_id,
         ])
 
 
 def main():
     init_out_csv()
-    if len(sys.argv) < 2:
-        print("Использование: python 04_прототип.py payment.json")
+    # обязательно передавать idempotency_key, решили передавать через консоль, тк в консольном прототипе нет заголовков
+    if len(sys.argv) < 3:
+        print("как использовать программу: python 05_app.py <файл.json> [idempotency_key]")
         sys.exit(1)
 
     with open(sys.argv[1], encoding="utf-8") as f:
         payload = json.load(f)
 
+    idem_key = sys.argv[2]
     active = load_active_recipients()
-    errors = validate(payload, active)
+    errors = validate(payload, active, idem_key)
 
     if errors:
         print(json.dumps({
@@ -159,11 +167,11 @@ def main():
             "error_code": "VALIDATION_ERROR",
             "errors": [{"field": f, "code": c} for f, c in errors],
         }, ensure_ascii=False, indent=2))
-        write_result(payload, 'ERROR', 'VALIDATION_ERROR')
+        write_result(payload, 'ERROR', 'VALIDATION_ERROR', idem_key)
         sys.exit(2)
 
     status, error_code = emulate_gateway(payload["order_id"])
-    write_result(payload, status, error_code)
+    write_result(payload, status, error_code, idem_key)
     print(json.dumps({
         "payment_id": "pay_demo_" + payload["order_id"][-4:],
         "status": status,
