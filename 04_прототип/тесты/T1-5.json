@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_1006_timeout_3",
+  "recipient": "clinic_medservice",
+  "purpose": "Приём педиатра",
+  "amount": 2200.00,
+  "currency": "RUB"
+}

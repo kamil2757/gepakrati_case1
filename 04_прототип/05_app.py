@@ -78,7 +78,7 @@ def validate(payload, active_recipients, idem_key):
 
     # V-7
     amount = payload.get('amount')
-    if len(amount.split('.')[1]) > 2:
+    if len(str(amount).partition(".")[2]) > 2:
         errors.append(('amount', 'INVALID_AMOUNT_PRECISION'))
 
     # V-8
@@ -118,7 +118,7 @@ def emulate_gateway(order_id):
         timeout = 600
         show_loading(timeout)
         print('время вышло')
-        return 'TIMEOUT', 'UNKNOWN'
+        return 'PENDING', 'UNKNOWN'
 
 
 

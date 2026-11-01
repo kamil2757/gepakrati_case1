@@ -1,0 +1,3 @@
+﻿payment_id;order_id;recipient;purpose;amount;currency;status;error_code;idempotency_key;created_at;confirmed_at;correlation_id
+pay_demo_1001;ord_1001;clinic_medservice;Приём терапевта;2500.0;RUB;SUCCESS;;idem_0001;2026-11-01T15:18:43Z;2026-11-01T15:18:43Z;corr_d87750
+pay_demo_1001;ord_1001;clinic_medservice;Приём терапевта;2500.0;RUB;ERROR;VALIDATION_ERROR;idem_0001;2026-11-01T15:18:50Z;2026-11-01T15:18:50Z;corr_458275

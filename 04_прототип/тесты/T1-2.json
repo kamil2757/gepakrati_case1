@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_1002",
+  "recipient": "clinic_medservice",
+  "purpose": "УЗИ",
+  "amount": 1800.00,
+  "currency": "RUB"
+}

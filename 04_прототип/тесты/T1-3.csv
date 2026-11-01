@@ -1,0 +1,2 @@
+﻿payment_id;order_id;recipient;purpose;amount;currency;status;error_code;idempotency_key;created_at;confirmed_at;correlation_id
+pay_demo_1003;ord_1003;clinic_medservice;Анализ крови;-100.0;RUB;ERROR;VALIDATION_ERROR;idem_0003;2026-11-01T15:17:49Z;2026-11-01T15:17:49Z;corr_36c809

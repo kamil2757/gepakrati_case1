@@ -1,0 +1,2 @@
+﻿payment_id;order_id;recipient;purpose;amount;currency;status;error_code;idempotency_key;created_at;confirmed_at;correlation_id
+pay_demo_ut_3;ord_1006_timeout_3;clinic_medservice;Приём педиатра;2200.0;RUB;PENDING;UNKNOWN;idem_0005;2026-11-01T15:35:15Z;2026-11-01T15:35:15Z;corr_c25f1c

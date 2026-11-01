@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_1003",
+  "recipient": "clinic_medservice",
+  "purpose": "Анализ крови",
+  "amount": -100.00,
+  "currency": "RUB"
+}
