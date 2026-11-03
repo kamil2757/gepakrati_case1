@@ -22,6 +22,8 @@ import datetime
 import re
 import uuid
 import time
+from gateway_emulator import emulate_gateway
+
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -103,27 +105,8 @@ def validate(payload, active_recipients, idem_key):
     return errors
 
 
-def emulate_gateway(order_id):
-    """TODO: 4 сценария. Вернуть (status, error_code)."""
-    h = int(hashlib.md5(order_id.encode()).hexdigest(), 16) % 10
-    # ОБРАЗЕЦ — 0..6 = SUCCESS
-    if h <= 6:
-        return "SUCCESS", None
-    elif h == 7:
-        return 'DECLINED', 'INSUFFICIENT_FUNDS'
-    elif h == 8:
-        return 'DECLINED', 'CARD_DECLINED'
-    elif h == 9:
-        print('Банк не отвечает. ожидание 10 минут')
-        # тестировщик может менять значение времени, чтоб не ждать 600 секунд
-        timeout = 600
-        show_loading(timeout)
-        print('время вышло')
-        return 'PENDING', 'UNKNOWN'
 
 
-
-    return "UNKNOWN", "NOT_IMPLEMENTED"
 
 
 def init_out_csv():
@@ -248,7 +231,9 @@ def main():
         print('Запрос отправлен в банк')
         show_loading(2)
 
-        status, error_code = emulate_gateway(payload["order_id"])
+        gateway_status, error_code = emulate_gateway(payload["order_id"])
+        status = "PENDING" if gateway_status == "TIMEOUT" else gateway_status
+
         writeLog(payment_id, status)
         write_result(payload, status, error_code, idem_key)
 
