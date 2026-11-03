@@ -27,6 +27,7 @@ import time
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECIPIENTS_CSV = os.path.join(BASE_DIR, "01_данные", "recipients.csv")
 OUT_CSV = os.path.join(BASE_DIR, "payments_out.csv")
+EVENTS_LOG = os.path.join(BASE_DIR, 'events.log')
 
 
 def load_active_recipients():
@@ -174,69 +175,141 @@ def write_result(payload, status, error_code, idem_key):
         ])
 
 
+
+def writeLog(payment_id, status):
+    with open(EVENTS_LOG, 'a', encoding='utf-8') as f:
+        f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} Платеж {payment_id}: {status}\n')
+
+
 def main():
     init_out_csv()
     # обязательно передавать idempotency_key, решили передавать через консоль, тк в консольном прототипе нет заголовков
     if len(sys.argv) < 3:
-        print("как использовать программу: python 05_app.py <файл.json> [idempotency_key]")
+        print("Как использовать:")
+        print("  Создать: python 05_app.py create <файл.json> <idempotency_key>")
+        print("  Статус:  python 05_app.py status <payment_id>")
+        print("  Отмена:  python 05_app.py cancel <payment_id>")
         sys.exit(1)
 
-    with open(sys.argv[1], encoding="utf-8") as f:
-        payload = json.load(f)
-
-    idem_key = sys.argv[2]
-
-    # v-9 теперь тут
-    with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f, delimiter=';')
-        for row in reader:
-            if row.get('idempotency_key') == idem_key:
-                print('Это повторный запрос. Возвращаем результат предыдущего платежа:')
-                print(json.dumps({
-                    "payment_id": row.get('payment_id'),
-                    "status": row.get('status'),
-                    "error_code": "DUPLICATE_REQUEST"
-                }, ensure_ascii=False, indent=2))
-                sys.exit(0)
-                break
+    action = sys.argv[1]
 
 
-    active = load_active_recipients()
-    errors = validate(payload, active, idem_key)
+    if action == 'create':
+        if len(sys.argv) < 4:
+            print("Ошибка. Create нужно указать файл и ключ: python 05_app.py create <файл.json> <idempotency_key>")
+            sys.exit(1)
+        idem_key = sys.argv[3]
+        with open(sys.argv[2], encoding="utf-8") as f:
+            payload = json.load(f)
+        payment_id = "pay_demo_" + payload["order_id"][-4:]
+
+        # v-9 теперь тут
+        with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=';')
+            for row in reader:
+                if row.get('idempotency_key') == idem_key:
+                    print('Это повторный запрос. Возвращаем результат предыдущего платежа:')
+                    print(json.dumps({
+                        "payment_id": row.get('payment_id'),
+                        "status": row.get('status'),
+                        "error_code": "DUPLICATE_REQUEST"
+                    }, ensure_ascii=False, indent=2))
+                    sys.exit(0)
+                    break
 
 
-    if errors:
+        active = load_active_recipients()
+        errors = validate(payload, active, idem_key)
+
+
+        if errors:
+            print(json.dumps({
+                "status": "ERROR",
+                "error_code": "VALIDATION_ERROR",
+                "errors": [{"field": f, "code": c} for f, c in errors],
+            }, ensure_ascii=False, indent=2))
+            write_result(payload, 'ERROR', 'VALIDATION_ERROR', idem_key)
+            sys.exit(2)
+
+        status = 'CREATED'
+        print(f'Платеж создан {payload.get("order_id")}, статус {status}')
+        writeLog(payment_id, status)
+        time.sleep(1)
+        confirm_token = uuid.uuid4().hex[:6]
+        print(f'Токен сгенерировал: {confirm_token}, оправлен пользователю, ждем подтверждения \n')
+        print('Ожидание подтверждения клиентом ', end='\n')
+        show_loading(5)
+
+        status = 'PENDING'
+        print(f'Токен подтвержден пользователем, статус {status}')
+        writeLog(payment_id,status )
+        time.sleep(1)
+        print()
+        print('Запрос отправлен в банк')
+        show_loading(2)
+
+        status, error_code = emulate_gateway(payload["order_id"])
+        writeLog(payment_id, status)
+        write_result(payload, status, error_code, idem_key)
+
+        print('Результат:')
         print(json.dumps({
-            "status": "ERROR",
-            "error_code": "VALIDATION_ERROR",
-            "errors": [{"field": f, "code": c} for f, c in errors],
+            "payment_id": payment_id,
+            "status": status,
+            "error_code": error_code,
         }, ensure_ascii=False, indent=2))
-        write_result(payload, 'ERROR', 'VALIDATION_ERROR', idem_key)
-        sys.exit(2)
 
-    print(f'Платеж создан {payload.get("order_id")}, статус CREATED')
-    time.sleep(1)
-    confirm_token = uuid.uuid4().hex[:6]
-    print(f'Токен сгенерировал: {confirm_token}, оправлен пользователю, ждем подтверждения \n')
-    print('Ожидание подтверждения клиентом ', end='\n')
-    show_loading(5)
-    print(f'Токен подтвержден пользователем, статус PENDING')
-    time.sleep(1)
-    print()
-    print('Запрос отправлен в банк')
-    show_loading(2)
+        sys.exit(0 if status == "SUCCESS" else (3 if error_code == "UNKNOWN" else 1))
+    elif action == 'status':
+        payment_id = sys.argv[2]
+        found_row = False
+        with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=';')
+            for row in reader:
+                if row.get('payment_id') == payment_id:
+                    found_row = row
+                    break
 
-    status, error_code = emulate_gateway(payload["order_id"])
-    write_result(payload, status, error_code, idem_key)
+        if found_row:
+            print('Платеж был найден:')
+            print(json.dumps({
+                "payment_id": found_row.get('payment_id'),
+                "status": found_row.get('status'),
+                "error_code": found_row.get("error_code"),
+            }, ensure_ascii=False, indent=2))
+        else:
+            print("Платеж не найден")
+            sys.exit(400)
+    elif action == 'cancel':
+        payment_id = sys.argv[2]
+        found = False
+        updated_rows = []
+        fieldnames = [
+            "payment_id", "order_id", "recipient", "purpose", "amount",
+            "currency", "status", "error_code", "idempotency_key",
+            "created_at", "confirmed_at", "correlation_id"
+        ]
+        with open(OUT_CSV, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f, delimiter=';')
+            for row in reader:
+                if row.get('payment_id') == payment_id:
+                    if row['status'] in ['CREATED', 'PENDING']:
+                        row['status'] = 'CANCELED'
+                        found = True
+                        writeLog(payment_id, 'CANCELED')
+                updated_rows.append(row)
+        if found:
+            with open(OUT_CSV, mode='w', encoding='utf-8-sig', newline='') as f:
+                writer = csv.DictWriter(f, delimiter=';', fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(updated_rows)
+            print(f'Платеж {payment_id} успешно отменен')
+        else:
+            print("Платеж не найден или его нельзя отменить (не статус CREATED/PENDING)")
+            sys.exit(400)
 
-    print('Результат:')
-    print(json.dumps({
-        "payment_id": "pay_demo_" + payload["order_id"][-4:],
-        "status": status,
-        "error_code": error_code,
-    }, ensure_ascii=False, indent=2))
 
-    sys.exit(0 if status == "SUCCESS" else (3 if error_code == "UNKNOWN" else 1))
+
 
 
 if __name__ == "__main__":
