@@ -91,7 +91,7 @@ def validate(payload, active_recipients, idem_key):
         reader = csv.DictReader(f, delimiter=';')
         for row in reader:
             if row.get('order_id') == order_id and row.get('recipient') == recipient:
-                errors.append(('order_id, recipient', 'DUPLICATE_ORDER'))
+                errors.append(('order_id', 'DUPLICATE_ORDER'))
                 break
 
     # V-9
@@ -153,7 +153,7 @@ def write_result(payload, status, error_code, idem_key):
             error_code or "",
             idem_key,
             time_now,
-            time_now,
+            time_now if status == 'SUCCESS' else '',
             corr_id,
         ])
 
@@ -162,6 +162,19 @@ def write_result(payload, status, error_code, idem_key):
 def writeLog(payment_id, status):
     with open(EVENTS_LOG, 'a', encoding='utf-8') as f:
         f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} Платеж {payment_id}: {status}\n')
+
+
+def getLogsHistory(payment_id):
+    history = []
+    with open(EVENTS_LOG, 'r', encoding="utf-8-sig") as f:
+        for l in f:
+            if payment_id in l:
+                data = l.split(' ')
+                time = data[0] + 'T' + data[1] + 'Z'
+                status = data[-1][:-1]
+
+                history.append({'status': status, 'at': time})
+    return history
 
 
 def main():
@@ -179,7 +192,12 @@ def main():
 
     if action == 'create':
         if len(sys.argv) < 4:
-            print("Ошибка. Create нужно указать файл и ключ: python 05_app.py create <файл.json> <idempotency_key>")
+            print('Некорректный запрос. Отсутствуют данные')
+            print(json.dumps({
+                'error_code': "BAD_REQUEST",
+                'message': "Не удалось распарсить тело запроса: ожидался корректный JSON",
+                'retryable': False
+            }, ensure_ascii=False, indent=2))
             sys.exit(1)
         idem_key = sys.argv[3]
         with open(sys.argv[2], encoding="utf-8") as f:
@@ -188,14 +206,16 @@ def main():
 
         # v-9 теперь тут
         with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
+
             reader = csv.DictReader(f, delimiter=';')
             for row in reader:
                 if row.get('idempotency_key') == idem_key:
                     print('Это повторный запрос. Возвращаем результат предыдущего платежа:')
                     print(json.dumps({
-                        "payment_id": row.get('payment_id'),
+                        "payment_id": payment_id,
                         "status": row.get('status'),
-                        "error_code": "DUPLICATE_REQUEST"
+                        "confirm_token": uuid.uuid4().hex[:6],
+                        'expires_in': 540
                     }, ensure_ascii=False, indent=2))
                     sys.exit(0)
                     break
@@ -206,13 +226,23 @@ def main():
 
 
         if errors:
-            print(json.dumps({
-                "status": "ERROR",
-                "error_code": "VALIDATION_ERROR",
-                "errors": [{"field": f, "code": c} for f, c in errors],
-            }, ensure_ascii=False, indent=2))
-            write_result(payload, 'ERROR', 'VALIDATION_ERROR', idem_key)
-            sys.exit(2)
+            has_DUPLICATE_ORDER = any([True if 'DUPLICATE_ORDER' in er else False for er in errors])
+            if has_DUPLICATE_ORDER:
+                print(json.dumps({
+                    "error_code": "DUPLICATE_ORDER",
+                    'message': "Заказ с таким идентификатором уже оплачен или обрабатывается",
+                    'retryable': False
+                }, ensure_ascii=False, indent=2))
+                sys.exit(409)
+            else:
+                print(json.dumps({
+                    "error_code": "VALIDATION_ERROR",
+                    "message": "Ошибка валидации данных",
+                    'retryable': False,
+                    "errors": [{"field": f, "code": c} for f, c in errors],
+                }, ensure_ascii=False, indent=2))
+                write_result(payload, 'ERROR', 'VALIDATION_ERROR', idem_key)
+                sys.exit(422)
 
         status = 'CREATED'
         print(f'Платеж создан {payload.get("order_id")}, статус {status}')
@@ -241,6 +271,8 @@ def main():
         print(json.dumps({
             "payment_id": payment_id,
             "status": status,
+            'confirm_token': confirm_token,
+            "expires_in": 600,
             "error_code": error_code,
         }, ensure_ascii=False, indent=2))
 
@@ -256,18 +288,28 @@ def main():
                     break
 
         if found_row:
-            print('Платеж был найден:')
+            history = getLogsHistory(payment_id)
+            print('Информация о платеже успешно получена')
+            error_code = found_row.get("error_code")
             print(json.dumps({
                 "payment_id": found_row.get('payment_id'),
                 "status": found_row.get('status'),
-                "error_code": found_row.get("error_code"),
+                "error_code": error_code if error_code else None,
+                'amount': float(found_row.get('amount')),
+                'currency': found_row.get('currency'),
+                'history': history
             }, ensure_ascii=False, indent=2))
         else:
-            print("Платеж не найден")
+            print('Платёж с указанным идентификатором не найден')
+            print(json.dumps({
+                'error_code': "PAYMENT_NOT_FOUND",
+                'message': "Платёж с ID pay_9999 не найден в базе данных клиники",
+                'retryable': False
+            }, ensure_ascii=False, indent=2))
             sys.exit(400)
     elif action == 'cancel':
         payment_id = sys.argv[2]
-        found = False
+        founded_row = False
         updated_rows = []
         fieldnames = [
             "payment_id", "order_id", "recipient", "purpose", "amount",
@@ -280,18 +322,31 @@ def main():
                 if row.get('payment_id') == payment_id:
                     if row['status'] in ['CREATED', 'PENDING']:
                         row['status'] = 'CANCELED'
-                        found = True
+                        founded_row = row
                         writeLog(payment_id, 'CANCELED')
                 updated_rows.append(row)
-        if found:
+        if founded_row:
+            history = getLogsHistory(payment_id)
             with open(OUT_CSV, mode='w', encoding='utf-8-sig', newline='') as f:
                 writer = csv.DictWriter(f, delimiter=';', fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(updated_rows)
-            print(f'Платеж {payment_id} успешно отменен')
+            print(json.dumps({
+                "payment_id": payment_id,
+                "status": "CANCELED",
+                "error_code": None,
+                "amount": float(founded_row.get("amount")),
+                "currency": founded_row.get("currency"),
+                "history": history
+            }, ensure_ascii=False, indent=2))
         else:
             print("Платеж не найден или его нельзя отменить (не статус CREATED/PENDING)")
-            sys.exit(400)
+            print(json.dumps({
+                'error_code': "INVALID_PAYMENT_STATE",
+                'message': "Нельзя отменить уже оплаченный платёж",
+                'retryable': False
+            }, ensure_ascii=False, indent=2))
+            sys.exit(409)
 
 
 
