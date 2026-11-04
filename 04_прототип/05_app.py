@@ -94,14 +94,6 @@ def validate(payload, active_recipients, idem_key):
                 errors.append(('order_id', 'DUPLICATE_ORDER'))
                 break
 
-    # V-9
-    # with open(OUT_CSV, 'r', encoding="utf-8-sig") as f:
-    #     reader = csv.DictReader(f, delimiter=';')
-    #     for row in reader:
-    #         if row.get('idempotency_key') == idem_key:
-    #             errors.append(('idempotency_key', 'DUPLICATE_REQUEST'))
-    #             break
-
     return errors
 
 
