@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent
 GATEWAY_LOG = BASE_DIR / "gateway.log"
 
 
-def emulate_gateway(order_id, *, timeout_seconds=600, log_path=GATEWAY_LOG):
+def emulate_gateway(order_id, *, timeout_seconds=3, log_path=GATEWAY_LOG):
     
     started = time.monotonic()
 
