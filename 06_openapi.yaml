@@ -1,0 +1,520 @@
+# OpenAPI 3.0 — платёжный сервис, кейс 1
+#
+# Как заполнять:
+#   1. Не меняй строки с пометкой "ОБРАЗЕЦ" — это образец.
+#   2. Строки с "TODO" замени на реальное описание.
+#   3. Все 4 метода должны быть описаны: create, confirm, get, cancel.
+#   4. У каждого метода — responses с кодами (201/200/402/404/409/422/504).
+#   5. В примерах используй реальные данные из payments.csv.
+#
+# Проверь после заполнения: файл должен открываться в
+# https://editor.swagger.io/ без ошибок.
+
+openapi: 3.0.3
+
+info:
+  title: Med-Service Payment Service
+  version: "1.0.0"
+  description: Встраиваемый платёжный сервис для клиники. Шлюз эмулируется.
+
+servers:
+  - url: http://localhost:8081
+
+tags:
+  - name: payments
+    description: Создание, подтверждение, отмена и просмотр платежей
+
+# ---------- ОБРАЗЕЦ: этот блок не трогать ----------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 64}
+      description: UUID или стабильный ключ; хранится 24 ч
+
+  schemas:
+    PaymentCreate:
+      type: object
+      required: [order_id, recipient, purpose, amount, currency]
+      properties:
+        order_id: {type: string, minLength: 1, maxLength: 64,
+                   pattern: '^[A-Za-z0-9_\-]+$'}
+        recipient: {type: string, minLength: 1, maxLength: 64}
+        purpose: {type: string, minLength: 1, maxLength: 200}
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          maximum: 1000000
+          description: >
+            Сумма в рублях, строго больше 0, не более 2 знаков после точки
+            (проверяется сервисом, правило V-7)
+        currency: {type: string, enum: [RUB]}
+
+# ---------- схемы, описанные нами ----------
+    PaymentCreated:
+      type: object
+      required: [payment_id, status, confirm_token, expires_in]
+      properties:
+        payment_id:
+          type: string
+          description: Идентификатор платежа, его генерирует сервер
+          example: pay_0001
+        status:
+          type: string
+          enum: [CREATED]
+          description: Сразу после создания платёж всегда в статусе CREATED
+          example: CREATED
+        confirm_token:
+          type: string
+          description: Одноразовый токен для подтверждения платежа
+          example: ct_7f3a9c21e4b84d0a
+        expires_in:
+          type: integer
+          description: Срок жизни confirm_token в секундах (10 минут)
+          example: 600
+
+    PaymentStatus:
+      type: object
+      required: [payment_id, status, amount, currency]
+      properties:
+        payment_id:
+          type: string
+          example: pay_0002
+        status:
+          type: string
+          enum: [CREATED, PENDING, SUCCESS, DECLINED, ERROR, CANCELED]
+          example: DECLINED
+        error_code:
+          type: string
+          nullable: true
+          description: Код причины отказа или ошибки; null, если ошибки нет
+          example: INSUFFICIENT_FUNDS
+        amount:
+          type: number
+          format: double
+          example: 1800.00
+        currency:
+          type: string
+          enum: [RUB]
+          example: RUB
+        history:
+          type: array
+          description: Журнал смен статусов платежа, от старых к новым
+          items:
+            type: object
+            required: [status, at]
+            properties:
+              status:
+                type: string
+                enum: [CREATED, PENDING, SUCCESS, DECLINED, ERROR, CANCELED]
+              at:
+                type: string
+                format: date-time
+          example:
+            - {status: CREATED, at: "2025-11-01T08:30:00Z"}
+            - {status: PENDING, at: "2025-11-01T08:30:05Z"}
+            - {status: DECLINED, at: "2025-11-01T08:30:07Z"}
+
+    PaymentConfirm:
+      type: object
+      required: [confirm_token]
+      properties:
+        confirm_token:
+          type: string
+          description: Токен, полученный при создании платежа
+          example: ct_7f3a9c21e4b84d0a
+        method:
+          type: string
+          enum: [card_token, sms_code, biometric_stub]
+          default: card_token
+          description: >
+            Способ подтверждения. card_token — списание с токена карты
+            (по умолчанию), sms_code — код из SMS, biometric_stub —
+            заглушка биометрии.
+          example: card_token
+
+    Error:
+      type: object
+      required: [error_code, message]
+      properties:
+        error_code:
+          type: string
+          description: Машиночитаемый код ошибки из каталога
+          example: RECIPIENT_NOT_FOUND
+        message:
+          type: string
+          description: Человекочитаемое описание причины
+          example: Получатель не найден или неактивен
+        retryable:
+          type: boolean
+          description: Можно ли повторить запрос с тем же Idempotency-Key
+          example: false
+        details:
+          type: array
+          description: Список проблемных полей (если ошибок несколько)
+          items:
+            type: object
+            properties:
+              field: {type: string, example: recipient}
+              code: {type: string, example: RECIPIENT_NOT_FOUND}
+
+  # ---------- общие ответы, чтобы не повторять их в каждом методе ----------
+  responses:
+    Unauthorized:
+      description: Нет или неверный Bearer-токен
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example:
+            error_code: UNAUTHORIZED
+            message: Отсутствует или недействителен токен доступа
+            retryable: false
+    NotFound:
+      description: Платёж не найден
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example:
+            error_code: PAYMENT_NOT_FOUND
+            message: Платёж pay_9999 не найден
+            retryable: false
+
+# ---------- paths ----------
+paths:
+  # ---------- ОБРАЗЕЦ: health, не трогать ----------
+  /health:
+    get:
+      summary: Проверка живости
+      security: []   # проверка живости доступна без токена
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {status: {type: string, example: UP}}
+
+  # ---------- создание платежа ----------
+  /api/v1/payments:
+    post:
+      tags: [payments]
+      operationId: createPayment
+      summary: Создать платёж (статус CREATED, возвращает confirm_token)
+      description: >
+        Проверяет данные по правилам V-1…V-9 и создаёт платёж в статусе
+        CREATED. Деньги на этом шаге не списываются: списание происходит
+        только после вызова confirm. Повтор запроса с тем же
+        Idempotency-Key вернёт прежний результат (V-9).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCreate'
+            example:
+              order_id: ord_1001
+              recipient: clinic_medservice
+              purpose: Приём терапевта
+              amount: 2500.00
+              currency: RUB
+      responses:
+        '201':
+          description: Платёж создан, ожидает подтверждения
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentCreated'}
+              example:
+                payment_id: pay_0001
+                status: CREATED
+                confirm_token: ct_7f3a9c21e4b84d0a
+                expires_in: 600
+        '200':
+          description: >
+            Повтор запроса с тем же Idempotency-Key (DUPLICATE_REQUEST) —
+            возвращён тот же ответ, что и в первый раз, новый платёж не создан
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentCreated'}
+              example:
+                payment_id: pay_0001
+                status: CREATED
+                confirm_token: ct_7f3a9c21e4b84d0a
+                expires_in: 600
+        '400':
+          description: Отсутствует или некорректен заголовок Idempotency-Key, либо тело — не JSON
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: INVALID_REQUEST
+                message: Заголовок Idempotency-Key должен быть длиной 8–64 символа
+                retryable: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Получатель не найден в recipients.csv или имеет статус не ACTIVE (V-5)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: RECIPIENT_NOT_FOUND
+                message: Получатель clinic_medservice_old не найден или неактивен
+                retryable: false
+        '409':
+          description: Заказ с такой парой order_id + recipient уже существует (V-8, DUPLICATE_ORDER)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      payment_id:
+                        type: string
+                        description: Идентификатор уже существующего платежа по этому заказу
+              example:
+                error_code: DUPLICATE_ORDER
+                message: Платёж по заказу ord_1001 уже создан
+                retryable: false
+                payment_id: pay_0001
+        '422':
+          description: >
+            Ошибка проверки данных: VALIDATION_ERROR, INVALID_FORMAT,
+            AMOUNT_OUT_OF_RANGE, UNSUPPORTED_CURRENCY, INVALID_PURPOSE,
+            INVALID_AMOUNT_PRECISION
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              examples:
+                negative_amount:
+                  summary: Отрицательная сумма (ord_1003)
+                  value:
+                    error_code: AMOUNT_OUT_OF_RANGE
+                    message: Сумма должна быть больше 0 и не более 1 000 000
+                    retryable: false
+                    details:
+                      - {field: amount, code: AMOUNT_OUT_OF_RANGE}
+                unsupported_currency:
+                  summary: Валюта USD (ord_1005)
+                  value:
+                    error_code: UNSUPPORTED_CURRENCY
+                    message: Поддерживается только валюта RUB
+                    retryable: false
+                    details:
+                      - {field: currency, code: UNSUPPORTED_CURRENCY}
+        '429':
+          description: Превышен лимит запросов
+          headers:
+            Retry-After:
+              description: Через сколько секунд можно повторить запрос
+              schema: {type: integer, example: 30}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: TOO_MANY_REQUESTS
+                message: Слишком много запросов, повторите позже
+                retryable: true
+
+  # ---------- подтверждение ----------
+  /api/v1/payments/{id}/confirm:
+    post:
+      tags: [payments]
+      operationId: confirmPayment
+      summary: Подтвердить платёж токеном (списание через эмулятор шлюза)
+      description: >
+        Принимает confirm_token, переводит платёж CREATED → PENDING и
+        вызывает эмулятор шлюза. Токен одноразовый, живёт 600 секунд.
+        Повтор с тем же Idempotency-Key возвращает тот же ответ, что и в
+        первый раз (в том числе отказ 402), и не обращается к шлюзу.
+        При таймауте шлюза платёж остаётся в PENDING; повтор с тем же
+        Idempotency-Key безопасен и не приведёт к двойному списанию.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentConfirm'
+            example:
+              confirm_token: ct_7f3a9c21e4b84d0a
+              method: card_token
+      responses:
+        '200':
+          description: Платёж подтверждён и успешно проведён (SUCCESS)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentStatus'}
+              example:
+                payment_id: pay_0001
+                status: SUCCESS
+                error_code: null
+                amount: 2500.00
+                currency: RUB
+                history:
+                  - {status: CREATED, at: "2025-11-01T08:00:00Z"}
+                  - {status: PENDING, at: "2025-11-01T08:00:01Z"}
+                  - {status: SUCCESS, at: "2025-11-01T08:00:03Z"}
+        '400':
+          description: Отсутствует или некорректен заголовок Idempotency-Key, либо тело — не JSON
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: INVALID_REQUEST
+                message: Заголовок Idempotency-Key должен быть длиной 8–64 символа
+                retryable: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Шлюз отклонил платёж (статус DECLINED) — INSUFFICIENT_FUNDS или CARD_DECLINED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              examples:
+                insufficient_funds:
+                  summary: Недостаточно средств (ord_1002)
+                  value:
+                    error_code: INSUFFICIENT_FUNDS
+                    message: Недостаточно средств на карте
+                    retryable: false
+                card_declined:
+                  summary: Карта отклонена (ord_1007)
+                  value:
+                    error_code: CARD_DECLINED
+                    message: Карта отклонена банком
+                    retryable: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >
+            Платёж уже не в статусе CREATED: он подтверждён, отклонён или
+            отменён, а токен использован (повтор с новым Idempotency-Key)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: INVALID_STATE
+                message: Платёж pay_0001 уже в статусе SUCCESS, повторное подтверждение невозможно
+                retryable: false
+        '410':
+          description: Срок жизни confirm_token истёк (600 с), платёж нужно создать заново
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: TOKEN_EXPIRED
+                message: Токен подтверждения истёк, создайте платёж заново
+                retryable: false
+        '422':
+          description: >
+            Неверный confirm_token или неизвестный method; после 3 неудачных
+            попыток платёж переходит в DECLINED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: INVALID_TOKEN
+                message: Токен подтверждения не соответствует платежу
+                retryable: false
+        '504':
+          description: >
+            Шлюз не ответил вовремя. Платёж остаётся в PENDING, повторите
+            запрос с тем же Idempotency-Key
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: GATEWAY_TIMEOUT
+                message: Платёжный шлюз не ответил, статус платежа PENDING
+                retryable: true
+
+  # ---------- статус ----------
+  /api/v1/payments/{id}:
+    get:
+      tags: [payments]
+      operationId: getPayment
+      summary: Получить текущий статус платежа и историю его изменений
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Платёж найден
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentStatus'}
+              example:
+                payment_id: pay_0002
+                status: DECLINED
+                error_code: INSUFFICIENT_FUNDS
+                amount: 1800.00
+                currency: RUB
+                history:
+                  - {status: CREATED, at: "2025-11-01T08:30:00Z"}
+                  - {status: PENDING, at: "2025-11-01T08:30:05Z"}
+                  - {status: DECLINED, at: "2025-11-01T08:30:07Z"}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------- отмена ----------
+  /api/v1/payments/{id}/cancel:
+    post:
+      tags: [payments]
+      operationId: cancelPayment
+      summary: Отменить платёж (только до подтверждения, из статуса CREATED)
+      description: >
+        Отмена возможна только из статуса CREATED. Платёж, уже
+        подтверждённый, отклонённый или отменённый, отменить нельзя (409).
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Платёж отменён (CANCELED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentStatus'}
+              example:
+                payment_id: pay_0008
+                status: CANCELED
+                error_code: null
+                amount: 2500.00
+                currency: RUB
+                history:
+                  - {status: CREATED, at: "2025-11-01T11:30:00Z"}
+                  - {status: CANCELED, at: "2025-11-01T11:31:10Z"}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Отмена невозможна — платёж уже подтверждён или завершён (не в статусе CREATED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+              example:
+                error_code: INVALID_STATE
+                message: Платёж pay_0001 уже в статусе SUCCESS, отмена невозможна
+                retryable: false
