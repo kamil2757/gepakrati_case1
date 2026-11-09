@@ -7,6 +7,7 @@ CLI-прототип платёжного сервиса — кейс 1.
     python 05_app.py confirm <payment_id> <confirm_token>
     python 05_app.py status <payment_id>
     python 05_app.py cancel <payment_id>
+    python 05_app.py reconcile <payment_id>     # сверка PENDING-платежа с банком
 """
 import csv
 import datetime
@@ -17,7 +18,7 @@ import sys
 import time
 import uuid
 from decimal import Decimal, InvalidOperation
-from gateway_emulator import emulate_gateway
+from gateway_emulator import emulate_gateway, emulate_gateway_status
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECIPIENTS_CSV = os.path.join(BASE_DIR, "01_данные", "recipients.csv")
@@ -26,6 +27,12 @@ EVENTS_LOG = os.path.join(BASE_DIR, "events.log")
 TOKENS = os.path.join(BASE_DIR, "tokens.json")
 
 TOKEN_TTL_SECONDS = 600
+LOCK_PATH = os.path.join(BASE_DIR, ".app.lock")
+LOCK_WAIT_SECONDS = 30      # сколько ждать освобождения блокировки
+LOCK_STALE_SECONDS = 120    # блокировку старше считаем «осиротевшей» (процесс упал)
+# Статусы платежа, при которых заказ считается занятым (V-8).
+# DECLINED и CANCELED заказ НЕ блокируют: клиент может оплатить его заново.
+BLOCKING_STATUSES = ("CREATED", "PENDING", "SUCCESS")
 MSK_TZ = datetime.timezone(datetime.timedelta(hours=3))
 
 fieldnames = [
@@ -70,6 +77,142 @@ def save_tokens(tokens_data):
         json.dump(tokens_data, f, ensure_ascii=False, indent=2)
 
 
+class file_lock:
+    """Межпроцессная блокировка (O_EXCL-файл, работает на Windows и Linux).
+
+    Все команды выполняются под одной блокировкой, поэтому «проверил — записал»
+    в payments_out.csv / tokens.json становится атомарным: двойной клик
+    (T1-8) и параллельный перебор токена (T1-13) больше не обгоняют друг друга.
+    """
+
+    def __enter__(self):
+        started = time.time()
+        while True:
+            try:
+                self.fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                return self
+            except FileExistsError:
+                try:
+                    if time.time() - os.path.getmtime(LOCK_PATH) > LOCK_STALE_SECONDS:
+                        os.remove(LOCK_PATH)
+                        continue
+                except OSError:
+                    pass
+                if time.time() - started > LOCK_WAIT_SECONDS:
+                    print(json.dumps({
+                        "error_code": "LOCK_TIMEOUT",
+                        "message": "Сервис занят, повторите запрос",
+                        "retryable": True
+                    }, ensure_ascii=False, indent=2))
+                    sys.exit(503)
+                time.sleep(0.02)
+
+    def __exit__(self, exc_type, exc, tb):
+        os.close(self.fd)
+        try:
+            os.remove(LOCK_PATH)
+        except OSError:
+            pass
+        return False
+
+
+def read_rows():
+    if not os.path.exists(OUT_CSV):
+        return []
+    with open(OUT_CSV, "r", encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f, delimiter=";"))
+
+
+def write_rows(rows):
+    with open(OUT_CSV, mode="w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, delimiter=";", fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def expire_stale_payments():
+    """Лениво завершить платежи с просроченным токеном (TTL > 600 с).
+
+    Без этого платёж с истёкшим токеном вечно оставался бы CREATED: `status` врал,
+    повторный create отдавал мёртвый токен, а V-8 блокировал заказ навсегда.
+    """
+    tokens_data = load_tokens()
+    now = time.time()
+    stale = [pid for pid, info in tokens_data.items()
+             if now - info.get("created_at", now) > TOKEN_TTL_SECONDS]
+    if not stale:
+        return
+    rows = read_rows()
+    changed = False
+    for row in rows:
+        if row.get("payment_id") in stale and row.get("status") == "CREATED":
+            row["status"] = "DECLINED"
+            row["error_code"] = "TOKEN_EXPIRED"
+            writeLog(row["payment_id"], "DECLINED")
+            changed = True
+    for pid in stale:
+        tokens_data.pop(pid, None)
+    save_tokens(tokens_data)
+    if changed:
+        write_rows(rows)
+
+
+def find_blocking_duplicate(order_id, recipient):
+    """V-8: активный (CREATED / PENDING / SUCCESS) платёж по той же паре order_id + recipient."""
+    for row in read_rows():
+        if (row.get("order_id") == str(order_id) and row.get("recipient") == str(recipient)
+                and row.get("status") in BLOCKING_STATUSES):
+            return row
+    return None
+
+
+def same_request(row, payload):
+    """V-9: тело повторного запроса совпадает с тем, что было сохранено под этим ключом."""
+    try:
+        same_amount = Decimal(str(payload.get("amount"))) == Decimal(row.get("amount"))
+    except (InvalidOperation, ValueError, TypeError):
+        same_amount = False
+    return (same_amount
+            and str(payload.get("order_id")) == row.get("order_id")
+            and str(payload.get("recipient")) == row.get("recipient")
+            and str(payload.get("purpose")) == row.get("purpose")
+            and str(payload.get("currency")) == row.get("currency"))
+
+
+def luhn_ok(digits):
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        d = int(ch)
+        if i % 2 == 1:
+            d = d * 2 - 9 if d * 2 > 9 else d * 2
+        total += d
+    return total % 10 == 0
+
+
+_DIGIT_RUN = re.compile(r"\d(?:[\s\-./_]?\d)*")   # цифры, разделённые одним пробелом, - . / или _
+_CVV = re.compile(r"(?<![a-z])(?:cvv|cvc|cid|cav)2?(?![a-z])\D{0,10}\d{3,4}|код\s+безопасности\D{0,10}\d{3,4}",
+                  re.IGNORECASE)
+
+
+def contains_pan(text):
+    """PAN: 13–19 цифр (в т.ч. с разделителями и юникод-цифрами), проходящих проверку Луна."""
+    for run in _DIGIT_RUN.finditer(text):
+        groups = re.findall(r"\d+", run.group())
+        for i in range(len(groups)):
+            acc = ""
+            for j in range(i, len(groups)):
+                acc += groups[j]
+                if len(acc) > 19:
+                    break
+                if len(acc) >= 13 and luhn_ok(acc):
+                    return True
+    return False
+
+
+def contains_cvv(text):
+    return bool(_CVV.search(text))
+
+
 def is_empty(val):
     """Проверка на None, пустую строку или строку из одних пробелов."""
     if val is None:
@@ -94,8 +237,9 @@ def validate(payload, active_recipients, idem_key):
         if not isinstance(order_id_val, str):
             errors.append(("order_id", "INVALID_FORMAT"))
         else:
-            pattern = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
-            if not pattern.match(order_id_val):
+            pattern = re.compile(r"[A-Za-z0-9_\-]{1,64}")
+            # fullmatch, а не ^...$: «$» пропускал завершающий "\n" (обход V-8, тест T1-7)
+            if not pattern.fullmatch(order_id_val):
                 errors.append(("order_id", "INVALID_FORMAT"))
 
     # V-3 и V-7: Проверка типа, диапазона и точности суммы (amount)
@@ -125,7 +269,7 @@ def validate(payload, active_recipients, idem_key):
 
     # V-5: Активный получатель
     recipient = payload.get("recipient")
-    if not is_empty(recipient) and recipient not in active_recipients:
+    if not is_empty(recipient) and (not isinstance(recipient, str) or recipient not in active_recipients):
         errors.append(("recipient", "RECIPIENT_NOT_FOUND"))
 
     # V-6: Назначение платежа (длина до 200 символов и отсутствие PAN 13-19 цифр, даже с пробелами/дефисами)
@@ -134,18 +278,16 @@ def validate(payload, active_recipients, idem_key):
         if not isinstance(purpose, str):
             errors.append(("purpose", "INVALID_PURPOSE"))
         else:
-            pattern_pan = re.compile(r"(?:\d[\s\-]?){12,18}\d")
-            if len(purpose) > 200 or pattern_pan.search(purpose):
+            # длина; PAN (13–19 цифр + Луна, любые разделители); CVV/CVC; «формулы» Excel (= + - @)
+            if (len(purpose) > 200 or contains_pan(purpose) or contains_cvv(purpose)
+                    or purpose.lstrip().startswith(("=", "+", "-", "@"))):
                 errors.append(("purpose", "INVALID_PURPOSE"))
 
     # V-8: Дубликат заказа у того же получателя
-    if not is_empty(order_id_val) and not is_empty(recipient) and os.path.exists(OUT_CSV):
-        with open(OUT_CSV, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            for row in reader:
-                if row.get("order_id") == str(order_id_val) and row.get("recipient") == str(recipient):
-                    errors.append(("order_id", "DUPLICATE_ORDER"))
-                    break
+    # (блокируют только CREATED / PENDING / SUCCESS; после DECLINED и CANCELED заказ можно оплатить заново)
+    if not is_empty(order_id_val) and not is_empty(recipient):
+        if find_blocking_duplicate(order_id_val, recipient):
+            errors.append(("order_id", "DUPLICATE_ORDER"))
 
     return errors
 
@@ -208,9 +350,11 @@ def main():
         print("  Подтвердить: python 05_app.py confirm <payment_id> <confirm_token>")
         print("  Статус:      python 05_app.py status <payment_id>")
         print("  Отмена:      python 05_app.py cancel <payment_id>")
+        print("  Сверка:      python 05_app.py reconcile <payment_id>   (только для PENDING)")
         sys.exit(1)
 
     action = sys.argv[1]
+    expire_stale_payments()
 
     if action == "create":
         if len(sys.argv) < 4:
@@ -237,32 +381,38 @@ def main():
             sys.exit(400)
 
         # V-9: Проверка идемпотентности create
-        with open(OUT_CSV, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            for row in reader:
-                if row.get("idempotency_key") == idem_key:
-                    existing_pid = row.get("payment_id")
-                    existing_status = row.get("status")
-                    tokens_data = load_tokens()
-                    token_info = tokens_data.get(existing_pid)
-
-                    if token_info and existing_status == "CREATED":
-                        elapsed = int(time.time() - token_info.get("created_at", time.time()))
-                        expires_in = max(0, TOKEN_TTL_SECONDS - elapsed)
-                        saved_token = token_info.get("token")
-                    else:
-                        expires_in = 0
-                        saved_token = None
-
-                    print("Это повторный запрос. Возвращаем результат предыдущего платежа:")
+        for row in read_rows():
+            if row.get("idempotency_key") == idem_key:
+                # тот же ключ с ДРУГИМ телом — не отдаём чужой платёж и токен, а отклоняем (T1-10)
+                if not same_request(row, payload):
                     print(json.dumps({
-                        "payment_id": existing_pid,
-                        "status": existing_status,
-                        "confirm_token": saved_token,
-                        "expires_in": expires_in,
-                        "error_code": "DUPLICATE_REQUEST"
+                        "error_code": "IDEMPOTENCY_KEY_REUSED",
+                        "message": "Idempotency-Key уже использован с другим телом запроса",
+                        "retryable": False
                     }, ensure_ascii=False, indent=2))
-                    sys.exit(0)
+                    sys.exit(422)
+                existing_pid = row.get("payment_id")
+                existing_status = row.get("status")
+                tokens_data = load_tokens()
+                token_info = tokens_data.get(existing_pid)
+
+                if token_info and existing_status == "CREATED":
+                    elapsed = int(time.time() - token_info.get("created_at", time.time()))
+                    expires_in = max(0, TOKEN_TTL_SECONDS - elapsed)
+                    saved_token = token_info.get("token")
+                else:
+                    expires_in = 0
+                    saved_token = None
+
+                print("Это повторный запрос. Возвращаем результат предыдущего платежа:")
+                print(json.dumps({
+                    "payment_id": existing_pid,
+                    "status": existing_status,
+                    "confirm_token": saved_token,
+                    "expires_in": expires_in,
+                    "error_code": "DUPLICATE_REQUEST"
+                }, ensure_ascii=False, indent=2))
+                sys.exit(0)
 
         active = load_active_recipients()
         errors = validate(payload, active, idem_key)
@@ -271,9 +421,12 @@ def main():
             has_DUPLICATE_ORDER = any("DUPLICATE_ORDER" in er for er in errors)
             has_RECIPIENT_NOT_FOUND = any("RECIPIENT_NOT_FOUND" in er for er in errors)
             if has_DUPLICATE_ORDER:
+                dup = find_blocking_duplicate(payload.get("order_id"), payload.get("recipient")) or {}
                 print(json.dumps({
                     "error_code": "DUPLICATE_ORDER",
                     "message": "Заказ с таким идентификатором уже оплачен или обрабатывается",
+                    "payment_id": dup.get("payment_id"),
+                    "status": dup.get("status"),
                     "retryable": False
                 }, ensure_ascii=False, indent=2))
                 sys.exit(409)
@@ -593,10 +746,51 @@ def main():
             }, ensure_ascii=False, indent=2))
             sys.exit(404)
 
+    elif action == "reconcile":
+        # Сверка с банком: единственный способ вывести платёж из PENDING.
+        # Новое списание НЕ создаётся — шлюз только сообщает итог уже отправленного платежа.
+        payment_id = sys.argv[2]
+        rows = read_rows()
+        found_row = next((r for r in rows if r.get("payment_id") == payment_id), None)
+        if not found_row:
+            print(json.dumps({
+                "error_code": "PAYMENT_NOT_FOUND",
+                "message": f"Платёж с ID {payment_id} не найден в базе данных",
+                "retryable": False
+            }, ensure_ascii=False, indent=2))
+            sys.exit(404)
+        if found_row.get("status") != "PENDING":
+            print(json.dumps({
+                "payment_id": payment_id,
+                "status": found_row.get("status"),
+                "error_code": "INVALID_STATE",
+                "message": "Сверка с банком нужна только для платежей в статусе PENDING",
+                "retryable": False
+            }, ensure_ascii=False, indent=2))
+            sys.exit(409)
+
+        status, error_code = emulate_gateway_status(found_row.get("order_id"))
+        found_row["status"] = status
+        found_row["error_code"] = error_code or ""
+        found_row["confirmed_at"] = now_iso() if status == "SUCCESS" else ""
+        write_rows(rows)
+        writeLog(payment_id, status)
+        print("Сверка с банком выполнена:")
+        print(json.dumps({
+            "payment_id": payment_id,
+            "status": status,
+            "error_code": error_code,
+            "amount": float(found_row["amount"]),
+            "currency": found_row["currency"],
+            "history": getLogsHistory(payment_id)
+        }, ensure_ascii=False, indent=2))
+        sys.exit(0 if status == "SUCCESS" else 402)
+
     else:
         print(f"Неизвестная команда: {action}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    with file_lock():
+        main()

@@ -1,7 +1,7 @@
 {
-  "order_id": "ord_1023",
+  "order_id": "ord_1001",
   "recipient": "clinic_medservice",
   "purpose": "Приём терапевта",
-  "amount": "2500.00",
+  "amount": 2500.00,
   "currency": "RUB"
 }
