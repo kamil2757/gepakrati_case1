@@ -19,6 +19,7 @@ import time
 import uuid
 from decimal import Decimal, InvalidOperation
 from gateway_emulator import emulate_gateway, emulate_gateway_status
+from receipt_generator import generate_fiscal_receipt
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECIPIENTS_CSV = os.path.join(BASE_DIR, "01_данные", "recipients.csv")
@@ -238,7 +239,6 @@ def validate(payload, active_recipients, idem_key):
             errors.append(("order_id", "INVALID_FORMAT"))
         else:
             pattern = re.compile(r"[A-Za-z0-9_\-]{1,64}")
-            # fullmatch, а не ^...$: «$» пропускал завершающий "\n" (обход V-8, тест T1-7)
             if not pattern.fullmatch(order_id_val):
                 errors.append(("order_id", "INVALID_FORMAT"))
 
@@ -278,13 +278,11 @@ def validate(payload, active_recipients, idem_key):
         if not isinstance(purpose, str):
             errors.append(("purpose", "INVALID_PURPOSE"))
         else:
-            # длина; PAN (13–19 цифр + Луна, любые разделители); CVV/CVC; «формулы» Excel (= + - @)
             if (len(purpose) > 200 or contains_pan(purpose) or contains_cvv(purpose)
                     or purpose.lstrip().startswith(("=", "+", "-", "@"))):
                 errors.append(("purpose", "INVALID_PURPOSE"))
 
     # V-8: Дубликат заказа у того же получателя
-    # (блокируют только CREATED / PENDING / SUCCESS; после DECLINED и CANCELED заказ можно оплатить заново)
     if not is_empty(order_id_val) and not is_empty(recipient):
         if find_blocking_duplicate(order_id_val, recipient):
             errors.append(("order_id", "DUPLICATE_ORDER"))
@@ -383,7 +381,6 @@ def main():
         # V-9: Проверка идемпотентности create
         for row in read_rows():
             if row.get("idempotency_key") == idem_key:
-                # тот же ключ с ДРУГИМ телом — не отдаём чужой платёж и токен, а отклоняем (T1-10)
                 if not same_request(row, payload):
                     print(json.dumps({
                         "error_code": "IDEMPOTENCY_KEY_REUSED",
@@ -533,7 +530,11 @@ def main():
                 }, ensure_ascii=False, indent=2))
                 sys.exit(410)
 
-            # 4. Идемпотентный ответ при повторном confirm после вызова шлюза (SUCCESS / PENDING / DECLINED от банка)
+            # 4. Идемпотентный ответ при повторном confirm
+            receipt_file = None
+            if current_status == "SUCCESS":
+                receipt_file = generate_fiscal_receipt(found_row)
+
             print("Повторный запрос confirm. Шлюз повторно не вызывался:")
             print(json.dumps({
                 "payment_id": payment_id,
@@ -541,9 +542,12 @@ def main():
                 "error_code": saved_error if saved_error else "DUPLICATE_REQUEST",
                 "amount": float(found_row["amount"]),
                 "currency": found_row["currency"],
+                "receipt": receipt_file,
                 "message": "Платеж уже был обработан ранее",
                 "history": history
             }, ensure_ascii=False, indent=2))
+            if receipt_file:
+                print(f"\n[КВИТАНЦИЯ СОЗДАНА]: {receipt_file}")
             sys.exit(0)
 
         token_info = tokens_data[payment_id]
@@ -629,6 +633,12 @@ def main():
 
         writeLog(payment_id, status)
         history = getLogsHistory(payment_id)
+
+        # Формируем чек только если статус SUCCESS
+        receipt_file = None
+        if status == "SUCCESS":
+            receipt_file = generate_fiscal_receipt(found_row)
+
         print("Результат подтверждения:")
         print(json.dumps({
             "payment_id": payment_id,
@@ -636,10 +646,12 @@ def main():
             "error_code": error_code,
             "amount": float(found_row["amount"]),
             "currency": found_row["currency"],
+            "receipt": receipt_file,
             "history": history
         }, ensure_ascii=False, indent=2))
 
         if status == "SUCCESS":
+            print(f"\n[КВИТАНЦИЯ СОЗДАНА]: {receipt_file}")
             sys.exit(0)
         elif error_code in ("TIMEOUT", "UNKNOWN"):
             sys.exit(504)
@@ -690,7 +702,6 @@ def main():
             for row in reader:
                 if row.get("payment_id") == payment_id:
                     payment_exists = True
-                    # Отменять можно ТОЛЬКО платеж в статусе CREATED (пока запрос не ушел в банк)
                     if row["status"] == "CREATED":
                         row["status"] = "CANCELED"
                         canceled = True
@@ -747,8 +758,6 @@ def main():
             sys.exit(404)
 
     elif action == "reconcile":
-        # Сверка с банком: единственный способ вывести платёж из PENDING.
-        # Новое списание НЕ создаётся — шлюз только сообщает итог уже отправленного платежа.
         payment_id = sys.argv[2]
         rows = read_rows()
         found_row = next((r for r in rows if r.get("payment_id") == payment_id), None)
@@ -775,6 +784,12 @@ def main():
         found_row["confirmed_at"] = now_iso() if status == "SUCCESS" else ""
         write_rows(rows)
         writeLog(payment_id, status)
+
+        # Формируем чек только если статус SUCCESS
+        receipt_file = None
+        if status == "SUCCESS":
+            receipt_file = generate_fiscal_receipt(found_row)
+
         print("Сверка с банком выполнена:")
         print(json.dumps({
             "payment_id": payment_id,
@@ -782,9 +797,15 @@ def main():
             "error_code": error_code,
             "amount": float(found_row["amount"]),
             "currency": found_row["currency"],
+            "receipt": receipt_file,
             "history": getLogsHistory(payment_id)
         }, ensure_ascii=False, indent=2))
-        sys.exit(0 if status == "SUCCESS" else 402)
+
+        if status == "SUCCESS":
+            print(f"\n[КВИТАНЦИЯ СОЗДАНА]: {receipt_file}")
+            sys.exit(0)
+        else:
+            sys.exit(402)
 
     else:
         print(f"Неизвестная команда: {action}")

@@ -1,12 +1,13 @@
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
 GATEWAY_LOG = BASE_DIR / "gateway.log"
+MSK_TZ = timezone(timedelta(hours=3))
 
 
 def emulate_gateway(order_id, *, timeout_seconds=3, log_path=GATEWAY_LOG):
@@ -27,7 +28,7 @@ def emulate_gateway(order_id, *, timeout_seconds=3, log_path=GATEWAY_LOG):
         status, error_code = "TIMEOUT", "UNKNOWN"
 
     record = {
-        "timestamp": datetime.now(timezone.utc).strftime(
+        "timestamp": datetime.now(MSK_TZ).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         ),
         "order_id": order_id,
@@ -51,7 +52,7 @@ def emulate_gateway_status(order_id, *, log_path=GATEWAY_LOG):
         status, error_code = "SUCCESS", None
 
     record = {
-        "timestamp": datetime.now(timezone.utc).strftime(
+        "timestamp": datetime.now(MSK_TZ).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         ),
         "order_id": order_id,

@@ -1,7 +1,1 @@
-{
-  "order_id": "ord_1001",
-  "recipient": "clinic_medservice",
-  "purpose": "Приём терапевта",
-  "amount": 2500.00,
-  "currency": "RUB"
-}
+{"order_id": "ORD-PDF-001", "recipient": "clinic_medservice", "purpose": "Консультация хирурга и УЗИ", "amount": 4200.00, "currency": "RUB"}
