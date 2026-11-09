@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_idem_A",
+  "recipient": "clinic_medservice",
+  "purpose": "первый платеж",
+  "amount": 1000.0,
+  "currency": "RUB"
+}

@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_cancel_test",
+  "recipient": "clinic_medservice",
+  "purpose": "повторная оплата",
+  "amount": 500.0,
+  "currency": "RUB"
+}

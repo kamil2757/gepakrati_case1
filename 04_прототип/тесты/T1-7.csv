@@ -1,0 +1,5 @@
+﻿payment_id;order_id;recipient;purpose;amount;currency;status;error_code;idempotency_key;created_at;confirmed_at;correlation_id
+pay_demo_0f4316;ord_cancel_test;clinic_medservice;тест отмены;500.0;RUB;CANCELED;;0007;2026-11-09T12:59:56Z;;corr_b661d3
+pay_demo_c2e043;ord_cancel_test;clinic_medservice;повторная оплата;500.0;RUB;DECLINED;TOKEN_EXPIRED;0017;2026-11-09T13:03:37Z;;corr_bcfb5f
+pay_demo_10bb4c;ord_cancel_test;clinic_medservice;тест отмены;500.0;RUB;CANCELED;;0009;2026-11-09T13:32:50Z;;corr_338ec9
+pay_demo_451ce9;ord_cancel_test;clinic_medservice;повторная оплата;500.0;RUB;CREATED;;0019;2026-11-09T13:33:41Z;;corr_eb9102

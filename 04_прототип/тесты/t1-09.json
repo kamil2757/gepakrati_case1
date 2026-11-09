@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_brute",
+  "recipient": "clinic_medservice",
+  "purpose": "брутфорс",
+  "amount": 300.0,
+  "currency": "RUB"
+}

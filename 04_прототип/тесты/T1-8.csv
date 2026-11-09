@@ -1,0 +1,2 @@
+﻿payment_id;order_id;recipient;purpose;amount;currency;status;error_code;idempotency_key;created_at;confirmed_at;correlation_id
+pay_demo_444bdf;ord_idem_A;clinic_medservice;первый платеж;1000.0;RUB;CREATED;;0008;2026-11-09T13:39:11Z;;corr_695251

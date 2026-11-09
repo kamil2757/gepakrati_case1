@@ -1,0 +1,2 @@
+﻿payment_id;order_id;recipient;purpose;amount;currency;status;error_code;idempotency_key;created_at;confirmed_at;correlation_id
+pay_demo_563462;ord_brute;clinic_medservice;брутфорс;300.0;RUB;DECLINED;INVALID_CONFIRM_TOKEN;0009;2026-11-09T13:43:47Z;;corr_8ac26b

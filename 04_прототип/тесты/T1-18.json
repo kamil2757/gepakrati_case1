@@ -1,0 +1,7 @@
+{
+  "order_id": "ord_idem_B",
+  "recipient": "clinic_pharmacy",
+  "purpose": "совсем другой платеж",
+  "amount": 99999.0,
+  "currency": "RUB"
+}
